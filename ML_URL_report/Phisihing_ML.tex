@@ -1,0 +1,85 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{titlesec}
+\usepackage{hyperref}
+
+\definecolor{darkblue}{RGB}{0, 51, 102}
+\hypersetup{colorlinks=true, linkcolor=darkblue, urlcolor=blue}
+
+\titleformat{\section}{\normalfont\Large\bfseries\color{darkblue}}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries\color{darkblue}}{\thesubsection}{0.5em}{}
+
+\title{\textbf{Hybrid Machine Learning Pipeline for Real-Time Malicious URL Classification}}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Goal}
+The goal of this project is to build a machine learning pipeline that automatically classifies URLs as
+ \textbf{benign, phishing, malware, or defacement}. The system works in two layers.
+\begin{itemize}
+    \item \textbf{Layer 1: Lexical analysis:} Inspecting the structure of the URL string itself (length, special characters, entropy, suspicious tokens).
+    \item \textbf{Layer 2: Passive OSINT enrichment:} Querying external sources for domain age (WHOIS), hosting infrastructure (IPInfo), and DGA-like pattern detection.
+\end{itemize}
+The project was trained on a dataset of 600,000 labeled URLs covering all four classes (dataset found from kaggle).
+
+\section{Pipeline}
+
+\subsection{Lexical Features}
+This feature was extracted directly from the URL string without external API calls. 
+Features include URL length, domain length, number of dots/hyphens/digits, presence 
+of IP address, @ symbol, double slash redirects, HTTPS token in domain, domain entropy,
+and number of subdomains.
+
+\subsection{Passive OSINT Features}
+Enriched on a 2,000 URL sample due to API rate limits. Features include:
+\begin{itemize}
+    \item \texttt{domain\_age\_days}: Domain registration age from WHOIS.
+    \item \texttt{asn\_org, country, region}: Hosting infrastructure metadata from IPInfo.
+    \item \texttt{is\_dga\_like}: Flags domains with entropy $> 3.8$.
+    \item \texttt{suspicious\_domain}: young domain and DGA-like entropy combined.
+\end{itemize}
+
+\newpage
+\section{Results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{l l r}
+\toprule
+\textbf{Model} & \textbf{Dataset} & \textbf{Macro F1} \\
+\midrule
+Random Forest & 600k lexical only & 0.9287 \\
+XGBoost & 600k lexical only & 0.9251 \\
+XGBoost (enriched) & 2k passive OSINT & 0.9140 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The base Random Forest model trained on the full 600k dataset achieved 
+the strongest performance with a macro F1 of 0.9287. On the other hand the passive OSINT model has the 
+lowest F1 score.
+
+\section{Limitations}
+\begin{itemize}
+    \item Passive OSINT enrichment was restricted to 2,000 samples due to API rate limits on free IPInfo and WHOIS tiers.
+    \item WHOIS lookups fail on dead or taken-down domains, though a missing record is a useful signal in itself.
+    \item VirusTotal enrichment was excluded due to the free tier limit of 4 requests per minute.
+    \item Rare classes like malware and phishing have limited representation in the 2k enriched sample.
+\end{itemize}
+
+\section{Future Work}
+\begin{itemize}
+    \item Run passive OSINT enrichment on the full 600k dataset.
+    \item Add VirusTotal reputation scores using a premium API key.
+    \item Encode categorical OSINT features like country and ASN as model inputs.
+    \item Deploy the saved model as a REST API for real-time classification.
+\end{itemize}
+
+\end{document}
